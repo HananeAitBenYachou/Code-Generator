@@ -210,7 +210,7 @@ namespace CodeGenerator
             _GenerateBusinessLayerClass();
         }
 
-        /*************************************/
+        /***************************************************************************************************************/
 
         private string _GetTableSingularName(string tableName)
         {
@@ -270,7 +270,7 @@ namespace CodeGenerator
             return generatedCode.ToString();
         }
 
-        private string _GetColumnDataType(object dataType, bool IsNullable = true)
+        private string _GetColumnDataType(object dataType, bool IsNullable = false)
         {
             switch (dataType.ToString().ToLower())
             {
@@ -314,16 +314,18 @@ namespace CodeGenerator
         {
             StringBuilder parametersString = new StringBuilder();
             DataRow row = null;
+            bool IsNullable = false;
 
             for (int i = 0; i < _TableColumns.Rows.Count; i++)
             {
                 row = _TableColumns.Rows[i];
+                IsNullable = (string)row["Is Nullable"] == "YES";
 
                 if (i == 0)
-                    parametersString.Append($"{_GetColumnDataType(row["Data Type"])} {row["Column Name"]}");
+                    parametersString.Append($"{_GetColumnDataType(row["Data Type"],true)} {row["Column Name"]}");
 
                 else
-                    parametersString.Append($@", ref {_GetColumnDataType(row["Data Type"])} {row["Column Name"]}");
+                    parametersString.Append($@", ref {_GetColumnDataType(row["Data Type"],IsNullable)} {row["Column Name"]}");
             }
 
             string functionSignature = $@"public static bool Get{_TableSingularName}InfoByID ({parametersString})";
@@ -337,9 +339,16 @@ namespace CodeGenerator
             for (int i = 1; i < _TableColumns.Rows.Count; i++)
             {
                 row = _TableColumns.Rows[i];
+                IsNullable = (string)row["Is Nullable"] == "YES";
 
+                if(IsNullable)
                 fetchedData.Append($@"
-                {row["Column Name"]} = (reader[""{row["Column Name"]}""] != DBNull.Value) ? ({_GetColumnDataType(row["Data Type"])}) reader[""{row["Column Name"]}""] : null;");
+                {row["Column Name"]} = (reader[""{row["Column Name"]}""] != DBNull.Value) ? ({_GetColumnDataType(row["Data Type"],true)}) reader[""{row["Column Name"]}""] : null;");
+                
+                else
+                    fetchedData.Append($@"
+                {row["Column Name"]} = ({_GetColumnDataType(row["Data Type"])}) reader[""{row["Column Name"]}""];");
+
                 fetchedData.Append("\n");
             }
 
@@ -389,7 +398,7 @@ namespace CodeGenerator
 
         private string _GenerateIsExistFunction()
         {
-            string functionSignature = $@"public static bool Is{_TableSingularName}Exist ({_GetColumnDataType(_TableColumns.Rows[0]["Data Type"])} {_TableColumns.Rows[0]["Column Name"]})";
+            string functionSignature = $@"public static bool Is{_TableSingularName}Exist ({_GetColumnDataType(_TableColumns.Rows[0]["Data Type"],true)} {_TableColumns.Rows[0]["Column Name"]})";
 
             string query = $@"@""SELECT IsFound = 1 
                              FROM {_TableName}
@@ -430,16 +439,18 @@ namespace CodeGenerator
         {
             StringBuilder parametersString = new StringBuilder();
             DataRow row = null;
+            bool IsNullable = false;
 
             for (int i = 0; i < _TableColumns.Rows.Count; i++)
             {
                 row = _TableColumns.Rows[i];
+                IsNullable = (string)row["Is Nullable"] == "YES";
 
                 if (i == 0)
-                    parametersString.Append($"{_GetColumnDataType(row["Data Type"])} {row["Column Name"]}");
+                    parametersString.Append($"{_GetColumnDataType(row["Data Type"], true)} {row["Column Name"]}");
 
                 else
-                    parametersString.Append($@", {_GetColumnDataType(row["Data Type"])} {row["Column Name"]}");
+                    parametersString.Append($@", {_GetColumnDataType(row["Data Type"], IsNullable)} {row["Column Name"]}");
             }
 
             string functionSignature = $@"public static bool Update{_TableSingularName}Info ({parametersString})";
@@ -468,8 +479,12 @@ namespace CodeGenerator
             for (int i = 0; i < _TableColumns.Rows.Count; i++)
             {
                 row = _TableColumns.Rows[i];
+                IsNullable = (string)row["Is Nullable"] == "YES";
 
-                commandParameters.Append($@"command.Parameters.AddWithValue(""@{row["Column Name"]}"",(object) {row["Column Name"]} ?? DBNull.Value);");
+                if(IsNullable)
+                   commandParameters.Append($@"command.Parameters.AddWithValue(""@{row["Column Name"]}"",(object) {row["Column Name"]} ?? DBNull.Value);");
+                else
+                    commandParameters.Append($@"command.Parameters.AddWithValue(""@{row["Column Name"]}"",{row["Column Name"]});");
 
                 commandParameters.Append("\n");
             }
@@ -506,7 +521,7 @@ namespace CodeGenerator
 
         private string _GenerateGetAllFunction()
         {
-            string functionSignature = $@"public static DataTable GetAll{_TableName} ()";
+            string functionSignature = $@"public static DataTable GetAll{_TableName}()";
 
             string query = $@"""SELECT * FROM {_TableName};""";
 
@@ -546,7 +561,7 @@ namespace CodeGenerator
 
         private string _GenerateDeleteFunction()
         {
-            string functionSignature = $@"public static bool Delete{_TableSingularName} ({_GetColumnDataType(_TableColumns.Rows[0]["Data Type"])} {_TableColumns.Rows[0]["Column Name"]})";
+            string functionSignature = $@"public static bool Delete{_TableSingularName} ({_GetColumnDataType(_TableColumns.Rows[0]["Data Type"], true)} {_TableColumns.Rows[0]["Column Name"]})";
 
             string query = $@"@""DELETE {_TableName}
                               WHERE {_TableColumns.Rows[0]["Column Name"]} = @{_TableColumns.Rows[0]["Column Name"]};""";
@@ -586,16 +601,18 @@ namespace CodeGenerator
             StringBuilder parametersString = new StringBuilder();
 
             DataRow row = null;
+            bool IsNullable = false;
 
             for (int i = 1; i < _TableColumns.Rows.Count; i++)
             {
                 row = _TableColumns.Rows[i];
+                IsNullable = (string)row["Is Nullable"] == "YES";
 
                 if (i == 1)
-                    parametersString.Append($"{_GetColumnDataType(row["Data Type"])} {row["Column Name"]}");
+                    parametersString.Append($"{_GetColumnDataType(row["Data Type"],IsNullable)} {row["Column Name"]}");
 
                 else
-                    parametersString.Append($", {_GetColumnDataType(row["Data Type"])} {row["Column Name"]}");
+                    parametersString.Append($", {_GetColumnDataType(row["Data Type"],IsNullable)} {row["Column Name"]}");
             }
 
             string functionSignature = $@"public static int? AddNew{_TableSingularName} ({parametersString})";
@@ -629,7 +646,12 @@ namespace CodeGenerator
             {
                 row = _TableColumns.Rows[i];
 
-                commandParameters.Append($@"command.Parameters.AddWithValue(""@{row["Column Name"]}"",(object) {row["Column Name"]} ?? DBNull.Value);");
+                IsNullable = (string)row["Is Nullable"] == "YES";
+
+                if (IsNullable)
+                    commandParameters.Append($@"command.Parameters.AddWithValue(""@{row["Column Name"]}"",(object) {row["Column Name"]} ?? DBNull.Value);");
+                else
+                    commandParameters.Append($@"command.Parameters.AddWithValue(""@{row["Column Name"]}"",{row["Column Name"]});");
 
                 commandParameters.Append(Environment.NewLine);
             }
@@ -672,6 +694,8 @@ namespace CodeGenerator
         }}";
             return generatedCode;
         }
+
+        /***************************************************************************************************************/
 
         private void _GenerateBusinessLayerClass()
         {
@@ -728,16 +752,18 @@ namespace CodeGenerator
             fields.Append("private enMode _Mode;");
 
             DataRow row = null;
+            bool IsNullable = false;
 
             for (int i = 0; i < _TableColumns.Rows.Count; i++)
             {
                 row = _TableColumns.Rows[i];
+                IsNullable = (string)row["Is Nullable"] == "YES";
 
                 if (i == 0)
-                    fields.Append($"\npublic {_GetColumnDataType(row["Data Type"])} {row["Column Name"]}" + "{get ; private set;}");
+                    fields.Append($"\npublic {_GetColumnDataType(row["Data Type"],true)} {row["Column Name"]}" + "{get ; private set;}");
 
                 else
-                    fields.Append($"\npublic {_GetColumnDataType(row["Data Type"])} {row["Column Name"]}" + "{get ; set;}");
+                    fields.Append($"\npublic {_GetColumnDataType(row["Data Type"], IsNullable)} {row["Column Name"]}" + "{get ; set;}");
             }
             return fields.ToString();
         }
@@ -756,11 +782,17 @@ namespace CodeGenerator
             parameterlessConstructor.Append("_Mode = enMode.AddNew;\n");
 
             DataRow row = null;
-      
+            bool IsNullable = false;
+
             for (int i = 0; i < _TableColumns.Rows.Count; i++)
             {
                 row = _TableColumns.Rows[i];
-                parameterlessConstructor.Append($"{row["Column Name"]} = null; \n");
+                IsNullable = (string)row["Is Nullable"] == "YES";
+
+                if(i == 0 || IsNullable)
+                    parameterlessConstructor.Append($"{row["Column Name"]} = null; \n");
+                else
+                    parameterlessConstructor.Append($"{row["Column Name"]} = default; \n");
             }
 
             parameterlessConstructor.Append("}");
@@ -774,15 +806,18 @@ namespace CodeGenerator
             StringBuilder parametersString = new StringBuilder();
 
             DataRow row = null;
+            bool IsNullable = false;
 
             for (int i = 0; i < _TableColumns.Rows.Count; i++)
             {
                 row = _TableColumns.Rows[i];
+                IsNullable = (string)row["Is Nullable"] == "YES";
+
                 if (i == 0)
-                    parametersString.Append($"{_GetColumnDataType(row["Data Type"])} {row["Column Name"]}");
+                    parametersString.Append($"{_GetColumnDataType(row["Data Type"],true)} {row["Column Name"]}");
 
                 else
-                    parametersString.Append($@",{_GetColumnDataType(row["Data Type"])} {row["Column Name"]}");
+                    parametersString.Append($@",{_GetColumnDataType(row["Data Type"],IsNullable)} {row["Column Name"]}");
             }
 
             parameterlessConstructor.Append($"private cls{_TableSingularName}({parametersString})\n");
@@ -803,7 +838,7 @@ namespace CodeGenerator
         private string _GenerateBusinessClassDeleteFunc()
         {
             StringBuilder generatedCode = new StringBuilder();
-            generatedCode.Append($"public static bool Delete{_TableSingularName}({_GetColumnDataType(_TableColumns.Rows[0]["Data Type"], false)} {_TableColumns.Rows[0]["Column Name"]})\n");
+            generatedCode.Append($"public static bool Delete{_TableSingularName}({_GetColumnDataType(_TableColumns.Rows[0]["Data Type"], true)} {_TableColumns.Rows[0]["Column Name"]})\n");
             generatedCode.Append("{\n");
             generatedCode.Append($"return cls{_TableSingularName}Data.Delete{_TableSingularName}({_TableColumns.Rows[0]["Column Name"]});\n");
             generatedCode.Append("}");
@@ -815,9 +850,9 @@ namespace CodeGenerator
         {
             StringBuilder generatedCode = new StringBuilder();
 
-            generatedCode.Append($"public static DataTable GetAll{_TableName} ()\n");
+            generatedCode.Append($"public static DataTable GetAll{_TableName}()\n");
             generatedCode.Append("{\n");
-            generatedCode.Append($"return cls{_TableSingularName}Data.GetAll{_TableName} ();\n");
+            generatedCode.Append($"return cls{_TableSingularName}Data.GetAll{_TableName}();\n");
             generatedCode.Append("}");
 
             return generatedCode.ToString();
@@ -905,11 +940,14 @@ namespace CodeGenerator
             StringBuilder variablesString = new StringBuilder();
             StringBuilder functionParametersString = new StringBuilder();
             StringBuilder constructorParametersString = new StringBuilder();
+
             DataRow row = null;
+            bool IsNullable = false;
 
             for (int i = 0; i < _TableColumns.Rows.Count; i++)
             {
                 row = _TableColumns.Rows[i];
+                IsNullable = (string)row["Is Nullable"] == "YES";
 
                 if (i == 0)
                 {
@@ -921,12 +959,12 @@ namespace CodeGenerator
                 {
                     functionParametersString.Append($@", ref {row["Column Name"]}");
                     constructorParametersString.Append($@",{row["Column Name"]}");
-                    variablesString.Append($"{_GetColumnDataType(row["Data Type"])} {row["Column Name"]} = null; \n");
+                    variablesString.Append($"{_GetColumnDataType(row["Data Type"], IsNullable)} {row["Column Name"]} = default; \n");
                 }
             }
 
             string generatedCode = "";
-            generatedCode = $@"public static cls{_TableSingularName} Find({_GetColumnDataType(_TableColumns.Rows[0]["Data Type"], false)} {_TableColumns.Rows[0]["Column Name"]})
+            generatedCode = $@"public static cls{_TableSingularName} Find({_GetColumnDataType(_TableColumns.Rows[0]["Data Type"], true)} {_TableColumns.Rows[0]["Column Name"]})
             {{ 
             {variablesString}
             bool IsFound = cls{_TableSingularName}Data.Get{_TableSingularName}InfoByID({functionParametersString});
@@ -944,7 +982,7 @@ namespace CodeGenerator
         {
             StringBuilder generatedCode = new StringBuilder();
 
-            generatedCode.Append($"public static bool Is{_TableSingularName}Exist({_GetColumnDataType(_TableColumns.Rows[0]["Data Type"], false)} {_TableColumns.Rows[0]["Column Name"]})\n");
+            generatedCode.Append($"public static bool Is{_TableSingularName}Exist({_GetColumnDataType(_TableColumns.Rows[0]["Data Type"], true)} {_TableColumns.Rows[0]["Column Name"]})\n");
             generatedCode.Append("{\n");
             generatedCode.Append($"return cls{_TableSingularName}Data.Is{_TableSingularName}Exist({_TableColumns.Rows[0]["Column Name"]});\n");
             generatedCode.Append("}");
