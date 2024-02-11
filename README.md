@@ -32,7 +32,7 @@ The generated code will be displayed in the "Generated Code" textbox.
 
 - Data Access Layer Classes:
   - Reside in a separate namespace (e.g., DataAccessLayer).
-  - Contain methods for interacting with the database.
+  - Contain methods for interacting with the database using stored procedures.
 
 - Business Layer Classes:
   - Reside in a separate namespace (e.g., BusinessLayer).
@@ -41,4 +41,4 @@ The generated code will be displayed in the "Generated Code" textbox.
 ## Additional Notes:
 
 - The generated code utilizes clsDataAccessSettings for database connection details and clsErrorLogger for error logging.
-- Consider customizing the generated code further to fit specific project needs.
+- Consider customizing the generated code further to fit specific project needs, such as modifying the stored procedures or adding additional functionality.
