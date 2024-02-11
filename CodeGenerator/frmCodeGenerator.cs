@@ -234,14 +234,13 @@ namespace CodeGenerator
             StringBuilder generatedCode = new StringBuilder();
 
             generatedCode.Append( $"public class cls{_TableSingularName}Data \n" + "{");
-            generatedCode.Append("\n" + _GenerateGetByFunction() + "\n");
-            generatedCode.Append("\n" + _GenerateIsExistFunction() + "\n");
+            generatedCode.Append("\n" + _GenerateGetByIDFunction() + "\n");
+            generatedCode.Append("\n" + _GenerateDoesExistFunction() + "\n");
             generatedCode.Append("\n" + _GenerateAddFunction() + "\n");
             generatedCode.Append("\n" + _GenerateUpdateFunction() + "\n");
             generatedCode.Append("\n" + _GenerateDeleteFunction() + "\n");
             generatedCode.Append("\n" + _GenerateGetAllFunction() + "\n\n");
             generatedCode.Append("}\n");
-            generatedCode.Append("}");
 
             txtGeneratedCode.Text = generatedCode.ToString();
         }
@@ -258,8 +257,8 @@ namespace CodeGenerator
 
             generatedCode.Append($"\n\tpublic class cls{TableSingularName}Data \n" + "\t{");
 
-            generatedCode.Append("\n\t\t" + _GenerateGetByFunction() + "\n");
-            generatedCode.Append("\n\t\t" + _GenerateIsExistFunction() + "\n");
+            generatedCode.Append("\n\t\t" + _GenerateGetByIDFunction() + "\n");
+            generatedCode.Append("\n\t\t" + _GenerateDoesExistFunction() + "\n");
             generatedCode.Append("\n\t\t" + _GenerateAddFunction() + "\n");
             generatedCode.Append("\n\t\t" + _GenerateUpdateFunction() + "\n");
             generatedCode.Append("\n\t\t" + _GenerateDeleteFunction() + "\n");
@@ -310,7 +309,7 @@ namespace CodeGenerator
             }
         }
 
-        private string _GenerateGetByFunction()
+        private string _GenerateGetByIDFunction()
         {
             StringBuilder parametersString = new StringBuilder();
             DataRow row = null;
@@ -330,10 +329,6 @@ namespace CodeGenerator
 
             string functionSignature = $@"public static bool Get{_TableSingularName}InfoByID ({parametersString})";
 
-            string query = $@"@""SELECT * 
-                            FROM {_TableName} 
-                            WHERE {_TableColumns.Rows[0]["Column Name"]} = @{_TableColumns.Rows[0]["Column Name"]};""";
-
             StringBuilder fetchedData = new StringBuilder();
 
             for (int i = 1; i < _TableColumns.Rows.Count; i++)
@@ -352,18 +347,21 @@ namespace CodeGenerator
                 fetchedData.Append("\n");
             }
 
+            string storedProcedureName = $"SP_Get{_TableSingularName}InfoByID";
+
             string generatedCode = $@"{functionSignature} {{
-            bool IsFound = false;
+            bool isFound = false;
       
             try
             {{
                 using(SqlConnection connection = new SqlConnection(clsDataAccessSettings.connectionString))
                 {{
                     connection.Open();
-                    string query = {query};
 
-                    using(SqlCommand command = new SqlCommand(query,connection))
+                    using(SqlCommand command = new SqlCommand(""{storedProcedureName}"",connection))
                     {{
+                        command.CommandType = CommandType.StoredProcedure;
+
                         command.Parameters.AddWithValue(""@{_TableColumns.Rows[0]["Column Name"]}"", (object){_TableColumns.Rows[0]["Column Name"]} ?? DBNull.Value);
                            
                         using (SqlDataReader reader = command.ExecuteReader())
@@ -371,65 +369,72 @@ namespace CodeGenerator
                                 if (reader.Read())
                                 {{
                                     // The record was found successfully !
-                                    IsFound = true;
+                                    isFound = true;
                                     {fetchedData}                
                                 }}
                 
                                 else 
                                 {{
                                     // The record wasn't found !
-                                    IsFound = false;
+                                    isFound = false;
                                 }}
                         }}
-
                     }}
                 }}
             }}
             catch (Exception ex)
             {{
                 clsErrorLogger.LogError(ex);
-                IsFound = false;
+
+                isFound = false;
             }}
-            return IsFound;
+            return isFound;
             }}";
 
             return generatedCode;
         }
 
-        private string _GenerateIsExistFunction()
+        private string _GenerateDoesExistFunction()
         {
-            string functionSignature = $@"public static bool Is{_TableSingularName}Exist ({_GetColumnDataType(_TableColumns.Rows[0]["Data Type"],true)} {_TableColumns.Rows[0]["Column Name"]})";
+            string functionSignature = $@"public static bool Does{_TableSingularName}Exist ({_GetColumnDataType(_TableColumns.Rows[0]["Data Type"],true)} {_TableColumns.Rows[0]["Column Name"]})";
 
-            string query = $@"@""SELECT IsFound = 1 
-                             FROM {_TableName}
-                             WHERE {_TableColumns.Rows[0]["Column Name"]} = @{_TableColumns.Rows[0]["Column Name"]};""";
+            string storedProcedureName = $"SP_CheckIf{_TableSingularName}Exists";
 
             string generatedCode = $@"{functionSignature} {{
-            bool IsFound = false;
+            bool isFound = false;
       
             try
             {{
                 using(SqlConnection connection = new SqlConnection(clsDataAccessSettings.connectionString))
                 {{
                     connection.Open();
-                    string query = {query};
 
-                    using(SqlCommand command = new SqlCommand(query,connection))
-                    {{                        
+                    using(SqlCommand command = new SqlCommand(""{storedProcedureName}"",connection))
+                    {{
+                        command.CommandType = CommandType.StoredProcedure;
+
                         command.Parameters.AddWithValue(""@{_TableColumns.Rows[0]["Column Name"]}"", (object){_TableColumns.Rows[0]["Column Name"]} ?? DBNull.Value);
                           
-                        object reader = command.ExecuteScalar();
+                        SqlParameter returnValue = new SqlParameter
+                        {{
+                              Direction = ParameterDirection.ReturnValue
+                        }};
 
-                        IsFound = (reader != null);
+                        command.Parameters.Add(returnValue);
+
+                        command.ExecuteScalar();
+
+                        isFound = (int)returnValue.Value == 1;                      
                     }}
                 }}
             }}
             catch (Exception ex)
             {{
                 clsErrorLogger.LogError(ex);
-                IsFound = false;
+
+                isFound = false;
             }}
-            return IsFound;
+            return isFound;
         }}";
 
             return generatedCode;
@@ -455,25 +460,6 @@ namespace CodeGenerator
 
             string functionSignature = $@"public static bool Update{_TableSingularName}Info ({parametersString})";
 
-            StringBuilder queryValues = new StringBuilder();
-
-            for (int i = 1; i < _TableColumns.Rows.Count; i++)
-            {
-                row = _TableColumns.Rows[i];
-
-                queryValues.Append("\n");
-
-                if (i != _TableColumns.Rows.Count - 1)
-                    queryValues.Append("\t\t\t\t\t\t\t" + $"{row["Column Name"]} = @{row["Column Name"]},");
-
-                else
-                    queryValues.Append("\t\t\t\t\t\t\t" + $"{row["Column Name"]} = @{row["Column Name"]}");
-            }
-
-            string query = $@"@""UPDATE {_TableName}
-                            SET {queryValues}
-                            WHERE {_TableColumns.Rows[0]["Column Name"]} = @{_TableColumns.Rows[0]["Column Name"]};""";
-
             StringBuilder commandParameters = new StringBuilder();
 
             for (int i = 0; i < _TableColumns.Rows.Count; i++)
@@ -489,6 +475,8 @@ namespace CodeGenerator
                 commandParameters.Append("\n");
             }
 
+            string storedProcedureName = $"SP_Update{_TableSingularName}Info";
+
             string generatedCode = $@"{functionSignature} {{
             int rowsAffected = 0;
       
@@ -497,20 +485,20 @@ namespace CodeGenerator
                 using(SqlConnection connection = new SqlConnection(clsDataAccessSettings.connectionString))
                 {{
                     connection.Open();
-                    string query = {query};
 
-                    using(SqlCommand command = new SqlCommand(query,connection))
+                    using(SqlCommand command = new SqlCommand(""{storedProcedureName}"",connection))
                     {{
-                        
+                        command.CommandType = CommandType.StoredProcedure;
                         {commandParameters}
-                        rowsAffected = command.ExecuteNonQuery();
 
+                        rowsAffected = command.ExecuteNonQuery();
                     }}
                 }}
             }}
             catch (Exception ex)
             {{
                 clsErrorLogger.LogError(ex);
+
                 rowsAffected = 0;
             }}
             return rowsAffected != 0;
@@ -523,7 +511,7 @@ namespace CodeGenerator
         {
             string functionSignature = $@"public static DataTable GetAll{_TableName}()";
 
-            string query = $@"""SELECT * FROM {_TableName};""";
+            string storedProcedureName = $"SP_GetAll{_TableName}";
 
             string generatedCode = $@"{functionSignature} {{
             DataTable Datatable = new DataTable(); 
@@ -533,11 +521,11 @@ namespace CodeGenerator
                 using(SqlConnection connection = new SqlConnection(clsDataAccessSettings.connectionString))
                 {{
                     connection.Open();
-                    string query = {query};
 
-                    using(SqlCommand command = new SqlCommand(query,connection))
-                    {{
-                                                   
+                    using(SqlCommand command = new SqlCommand(""{storedProcedureName}"",connection))
+                    {{              
+                        command.CommandType = CommandType.StoredProcedure;
+
                         using (SqlDataReader reader = command.ExecuteReader())
                         {{
                             if(reader.HasRows)
@@ -545,7 +533,6 @@ namespace CodeGenerator
                     		    Datatable.Load(reader); 
                 	        }}        
                         }}
-
                     }}
                 }}
             }}
@@ -563,8 +550,7 @@ namespace CodeGenerator
         {
             string functionSignature = $@"public static bool Delete{_TableSingularName} ({_GetColumnDataType(_TableColumns.Rows[0]["Data Type"], true)} {_TableColumns.Rows[0]["Column Name"]})";
 
-            string query = $@"@""DELETE {_TableName}
-                              WHERE {_TableColumns.Rows[0]["Column Name"]} = @{_TableColumns.Rows[0]["Column Name"]};""";
+            string storedProcedureName = $"SP_Delete{_TableSingularName}";
 
             string generatedCode = $@"{functionSignature} {{
             int rowsAffected = 0;
@@ -574,15 +560,14 @@ namespace CodeGenerator
                 using(SqlConnection connection = new SqlConnection(clsDataAccessSettings.connectionString))
                 {{
                     connection.Open();
-                    string query = {query};
 
-                    using(SqlCommand command = new SqlCommand(query,connection))
+                    using(SqlCommand command = new SqlCommand(""{storedProcedureName}"",connection))
                     {{
-                        
+                        command.CommandType = CommandType.StoredProcedure;
+
                         command.Parameters.AddWithValue(""@{_TableColumns.Rows[0]["Column Name"]}"", (object){_TableColumns.Rows[0]["Column Name"]} ?? DBNull.Value);
                           
-		                rowsAffected = command.ExecuteNonQuery(); 
-                        
+		                rowsAffected = command.ExecuteNonQuery();          
                     }}
                 }}
             }}
@@ -617,29 +602,6 @@ namespace CodeGenerator
 
             string functionSignature = $@"public static int? AddNew{_TableSingularName} ({parametersString})";
 
-            StringBuilder queryParameters = new StringBuilder();
-            StringBuilder queryValues = new StringBuilder();
-
-            for (int i = 1; i < _TableColumns.Rows.Count; i++)
-            {
-                row = _TableColumns.Rows[i];
-
-                if (i == 1)
-                {
-                    queryParameters.Append($"{row["Column Name"]}");
-                    queryValues.Append($@"@{row["Column Name"]}");
-                }
-                else
-                {
-                    queryParameters.Append($",{row["Column Name"]}");
-                    queryValues.Append($@",@{row["Column Name"]}");
-                }
-            }
-
-            string query = $@"@""INSERT INTO {_TableName} ({queryParameters})
-                            VALUES ({queryValues});
-                            SELECT SCOPE_IDENTITY();""";
-
             StringBuilder commandParameters = new StringBuilder();
 
             for (int i = 1; i < _TableColumns.Rows.Count; i++)
@@ -656,6 +618,8 @@ namespace CodeGenerator
                 commandParameters.Append(Environment.NewLine);
             }
 
+            string storedProcedureName = $"SP_AddNew{_TableSingularName}";
+
             string generatedCode = $@"{functionSignature} {{
             {_TableColumns.Rows[0]["Data Type"]}? {_TableColumns.Rows[0]["Column Name"]} = null;
       
@@ -664,30 +628,29 @@ namespace CodeGenerator
                 using(SqlConnection connection = new SqlConnection(clsDataAccessSettings.connectionString))
                 {{
                     connection.Open();
-                    string query = {query};
 
-                    using(SqlCommand command = new SqlCommand(query,connection))
-                    {{
-                        
+                    using(SqlCommand command = new SqlCommand(""{storedProcedureName}"",connection))
+                    {{          
+                        command.CommandType = CommandType.StoredProcedure;
                         {commandParameters}
-                        object InsertedRowID = command.ExecuteScalar();
 
-                        //Check if the new {_TableColumns.Rows[0]["Column Name"]} was successfully inserted
-                        if(InsertedRowID != null && int.TryParse(InsertedRowID.ToString(),out int InsertedID))
+                        SqlParameter outputContactIDParameter = new SqlParameter(""@{_TableColumns.Rows[0]["Column Name"]}"", SqlDbType.Int)
                         {{
-                            {_TableColumns.Rows[0]["Column Name"]} = InsertedID;
-                        }}
-                
-                        // Set {_TableColumns.Rows[0]["Column Name"]} to null to indicate failure
-                        else
-                            {_TableColumns.Rows[0]["Column Name"]} = null;
+                            Direction = ParameterDirection.Output
+                        }};
 
+                        command.Parameters.Add(outputContactIDParameter);
+
+                        command.ExecuteNonQuery();
+
+                        {_TableColumns.Rows[0]["Column Name"]} = (int)outputContactIDParameter.Value;
                     }}
                 }}
             }}
             catch (Exception ex)
             {{
                 clsErrorLogger.LogError(ex);
+
                 {_TableColumns.Rows[0]["Column Name"]} = null;
             }}
             return {_TableColumns.Rows[0]["Column Name"]};
@@ -707,7 +670,7 @@ namespace CodeGenerator
             generatedCode.Append("\n" + _GenerateBusinessClassFields() + "\n");
             generatedCode.Append("\n" + _GenerateBusinessClassConstructors() + "\n");
             generatedCode.Append("\n" + _GenerateBusinessClassFindFunc() + "\n");
-            generatedCode.Append("\n" + _GenerateBusinessClassIsExistFunc() + "\n");
+            generatedCode.Append("\n" + _GenerateBusinessClassDoesExistFunc() + "\n");
             generatedCode.Append("\n" + _GenerateBusinessClassAddFunc() + "\n");
             generatedCode.Append("\n" + _GenerateBusinessClassUpdateFunc() + "\n");
             generatedCode.Append("\n" + _GenerateBusinessClassSaveFunc() + "\n");
@@ -732,7 +695,7 @@ namespace CodeGenerator
             generatedCode.Append("\n\t\t" + _GenerateBusinessClassFields() + "\n");
             generatedCode.Append("\n\t\t" + _GenerateBusinessClassConstructors() + "\n");
             generatedCode.Append("\n\t\t" + _GenerateBusinessClassFindFunc() + "\n");
-            generatedCode.Append("\n\t\t" + _GenerateBusinessClassIsExistFunc() + "\n");
+            generatedCode.Append("\n\t\t" + _GenerateBusinessClassDoesExistFunc() + "\n");
             generatedCode.Append("\n\t\t" + _GenerateBusinessClassAddFunc() + "\n");
             generatedCode.Append("\n\t\t" + _GenerateBusinessClassUpdateFunc() + "\n");
             generatedCode.Append("\n\t\t" + _GenerateBusinessClassSaveFunc() + "\n");
@@ -967,9 +930,9 @@ namespace CodeGenerator
             generatedCode = $@"public static cls{_TableSingularName} Find({_GetColumnDataType(_TableColumns.Rows[0]["Data Type"], true)} {_TableColumns.Rows[0]["Column Name"]})
             {{ 
             {variablesString}
-            bool IsFound = cls{_TableSingularName}Data.Get{_TableSingularName}InfoByID({functionParametersString});
+            bool isFound = cls{_TableSingularName}Data.Get{_TableSingularName}InfoByID({functionParametersString});
 
-            if (IsFound)
+            if (isFound)
                 return new cls{_TableSingularName}({constructorParametersString});
             else
                 return null; 
@@ -978,13 +941,13 @@ namespace CodeGenerator
             return generatedCode;
         }
 
-        private string _GenerateBusinessClassIsExistFunc()
+        private string _GenerateBusinessClassDoesExistFunc()
         {
             StringBuilder generatedCode = new StringBuilder();
 
-            generatedCode.Append($"public static bool Is{_TableSingularName}Exist({_GetColumnDataType(_TableColumns.Rows[0]["Data Type"], true)} {_TableColumns.Rows[0]["Column Name"]})\n");
+            generatedCode.Append($"public static bool Does{_TableSingularName}Exist({_GetColumnDataType(_TableColumns.Rows[0]["Data Type"], true)} {_TableColumns.Rows[0]["Column Name"]})\n");
             generatedCode.Append("{\n");
-            generatedCode.Append($"return cls{_TableSingularName}Data.Is{_TableSingularName}Exist({_TableColumns.Rows[0]["Column Name"]});\n");
+            generatedCode.Append($"return cls{_TableSingularName}Data.Does{_TableSingularName}Exist({_TableColumns.Rows[0]["Column Name"]});\n");
             generatedCode.Append("}");
 
             return generatedCode.ToString();
