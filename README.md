@@ -5,28 +5,32 @@ This project provides a tool to automatically generate classes for data access a
 ## Key Features:
 
 - **Generates C# classes for data access logic:**
-    - Retrieves data by ID
-    - Checks for record existence
-    - Adds new records
-    - Updates existing records
-    - Deletes records
-    - Retrieves all records
+    - Retrieves data by ID using stored procedures
+    - Checks for record existence using stored procedures
+    - Adds new records using stored procedures
+    - Updates existing records using stored procedures
+    - Deletes records using stored procedures
+    - Retrieves all records using stored procedures
+    - Generates stored procedures for the selected tables
 
 - **Generates C# classes for business layer logic:**
     - Manages interactions with data access classes
     - Enforces business rules and validation
+      
+- **Generates stored procedures:**
+    -New feature: The code generator now generates stored procedures for the selected tables
 
 ## Usage:
 
 1. Run the Code Generator:
-Open the frmCodeGenerator form in a C# development environment.
+    - Open the frmCodeGenerator form in a C# development environment.
 2. Select Database and Table:
-Choose the desired database from the "Databases" dropdown.
-Select the table for which to generate classes from the "Database Tables" grid.
-3. Generate Classes:
-Click the appropriate button to generate classes for the data access layer, business layer, or both.
+    - Choose the desired database from the "Databases" dropdown.
+    - Select the table for which to generate classes and stored procedures from the "Database Tables" grid.
+3. Generate Classes and Stored Procedures:
+    - Click the appropriate button to generate classes for the data access layer, business layer, or both, along with the corresponding stored procedures.
 4. View Generated Code:
-The generated code will be displayed in the "Generated Code" textbox.
+    - The generated code will be displayed in the "Generated Code" textbox.
 
 ## Generated Code Structure:
 
