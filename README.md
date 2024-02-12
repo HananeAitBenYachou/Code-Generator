@@ -1,6 +1,6 @@
 # Code Generator for Data Access and Business Layers
 
-This project provides a tool to automatically generate classes for data access and business layers, streamlining database interaction in C# applications.
+This project automates the generation of efficient and reliable code for interacting with a database, including data access and business logic. With the added feature of stored procedure generation, it further simplifies database operations by providing ready-to-use stored procedures for CRUD operations.
 
 ## Key Features:
 
