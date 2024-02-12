@@ -25,5 +25,9 @@ namespace CodeGeneratorBusinessLayer
             return clsCodeGeneratorData.GetAllTableColumns(DatabaseName,TableName);
         }
 
+        public static DataTable ListTableColumnsWithDataTypePrecision(string DatabaseName, string TableName)
+        {
+            return clsCodeGeneratorData.GetAllTableColumnsWithDataTypePrecision(DatabaseName, TableName);
+        }
     }
 }

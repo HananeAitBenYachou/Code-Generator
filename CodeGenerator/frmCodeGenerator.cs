@@ -1,14 +1,19 @@
 ﻿using CodeGeneratorBusinessLayer;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using System.Web.UI.WebControls;
 using System.Windows.Forms;
+using static System.ComponentModel.Design.ObjectSelectorEditor;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.ListView;
 
 namespace CodeGenerator
 {
@@ -21,6 +26,8 @@ namespace CodeGenerator
         private string _TableSingularName = "";
 
         private DataTable _TableColumns = new DataTable();
+
+        private DataTable _TableColumnsWithDataTypePrecision = new DataTable();
 
         public frmCodeGenerator()
         {
@@ -49,6 +56,8 @@ namespace CodeGenerator
         private void dgvDatabaseTablesList_SelectionChanged(object sender, EventArgs e)
         {
             _TableName = (string)dgvDatabaseTablesList.CurrentRow.Cells[0].Value;
+            _RefreshTableColumnsList();
+
         }
 
         private void _FillDatabasesInComboBox()
@@ -124,15 +133,18 @@ namespace CodeGenerator
         private void rbNormal_CheckedChanged(object sender, EventArgs e)
         {
             _ResetDefaultValues();
-
+            
             txtDataAccessLayerPath.Enabled = !rbNormal.Checked;
             txtBusinessLayerPath.Enabled = !rbNormal.Checked;
 
             btnGenerateDataAccessLayer.Enabled = rbNormal.Checked;
             btnGenerateBusinessLayer.Enabled = rbNormal.Checked;
+            btnGenerateStoredProcedures.Enabled = rbNormal.Checked;
 
-            btnGenerateBothLayers.Enabled = !rbNormal.Checked;
-            btnCopy.Enabled = rbNormal.Checked;         
+            btnGenerateLayersClasses.Enabled = !rbNormal.Checked;
+            btnCopy.Enabled = rbNormal.Checked;
+
+            tabcontrol.SelectedTab = rbNormal.Checked ? tpNormalMode : tpAdvancedMode;
         }
 
         private void btnCopy_Click(object sender, EventArgs e)
@@ -153,65 +165,6 @@ namespace CodeGenerator
             this.Close();
         }
 
-        private void btnGenerateBothLayers_Click(object sender, EventArgs e)
-        {
-            if (string.IsNullOrEmpty(txtDataAccessLayerPath.Text))
-            {
-                MessageBox.Show("Please provide the path of the data access layer folder", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            else if (string.IsNullOrEmpty(txtBusinessLayerPath.Text))
-            {
-                MessageBox.Show("Please provide the path of the business layer folder", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            else
-            {
-                try
-                {
-                    _GenerateDataAccessLayerClasses();
-                    _GenerateBusinessLayerClasses();
-
-                    MessageBox.Show("Classes for the business layer and data access layer have been generated successfully.", "Success", 
-                        MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
-
-                catch (Exception ex)
-                {
-                    MessageBox.Show("Error : " + ex.Message);
-                }
-            }
-
-        }
-
-        private void btnGenerateDataAccessLayer_Click(object sender, EventArgs e)
-        {
-            if (dgvDatabaseTablesList.SelectedRows.Count == 0)
-            {
-                MessageBox.Show("Please select a table from the list ", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-            _RefreshTableColumnsList();
-            txtGeneratedCode.ResetText();
-            _GenerateDataAccessLayerClass();
-        }
-
-        private void btnGenerateBusinessLayer_Click(object sender, EventArgs e)
-        {
-            if (dgvDatabaseTablesList.SelectedRows.Count == 0)
-            {
-                MessageBox.Show("Please select a table from the list ", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-            _RefreshTableColumnsList();
-            txtGeneratedCode.ResetText();
-            _GenerateBusinessLayerClass();
-        }
-
-        /***************************************************************************************************************/
-
         private string _GetTableSingularName(string tableName)
         {
             switch (tableName)
@@ -225,6 +178,20 @@ namespace CodeGenerator
                 default:
                     return tableName.Substring(0, tableName.Length - 1);
             }
+        }
+
+        #region Data Access Layer
+
+        private void btnGenerateDataAccessLayer_Click(object sender, EventArgs e)
+        {
+            if (dgvDatabaseTablesList.SelectedRows.Count == 0)
+            {
+                MessageBox.Show("Please select a table from the list ", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            _RefreshTableColumnsList();
+            txtGeneratedCode.ResetText();
+            _GenerateDataAccessLayerClass();
         }
 
         private void _GenerateDataAccessLayerClass()
@@ -658,7 +625,20 @@ namespace CodeGenerator
             return generatedCode;
         }
 
-        /***************************************************************************************************************/
+        #endregion
+
+        #region Business Layer
+        private void btnGenerateBusinessLayer_Click(object sender, EventArgs e)
+        {
+            if (dgvDatabaseTablesList.SelectedRows.Count == 0)
+            {
+                MessageBox.Show("Please select a table from the list ", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            _RefreshTableColumnsList();
+            txtGeneratedCode.ResetText();
+            _GenerateBusinessLayerClass();
+        }
 
         private void _GenerateBusinessLayerClass()
         {
@@ -953,6 +933,9 @@ namespace CodeGenerator
             return generatedCode.ToString();
         }
 
+        #endregion
+
+        #region Both Layers
         private void _GenerateDataAccessLayerClasses()
         {
             string filePath = "";
@@ -998,6 +981,246 @@ namespace CodeGenerator
                 }
             }
         }
+
+        private void btnGenerateLayersClasses_Click(object sender, EventArgs e)
+        {
+            if (string.IsNullOrEmpty(txtDataAccessLayerPath.Text))
+            {
+                MessageBox.Show("Please provide the path of the data access layer folder", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            else if (string.IsNullOrEmpty(txtBusinessLayerPath.Text))
+            {
+                MessageBox.Show("Please provide the path of the business layer folder", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            else
+            {
+                try
+                {
+                    _GenerateDataAccessLayerClasses();
+                    _GenerateBusinessLayerClasses();
+
+                    MessageBox.Show("Classes for the business layer and data access layer have been generated successfully.", "Success", 
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Error : " + ex.Message);
+                }
+            }
+
+        }
+
+        #endregion
+
+        #region Stored Procedures
+        private void btnGenerateStoredProcedures_Click(object sender, EventArgs e)
+        {
+            if (dgvDatabaseTablesList.SelectedRows.Count == 0)
+            {
+                MessageBox.Show("Please select a table from the list ", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            _TableColumnsWithDataTypePrecision = clsCodeGenerator.ListTableColumnsWithDataTypePrecision(_DatabaseName, _TableName);
+            txtGeneratedCode.ResetText();
+            _GenerateTableStoredProcedures();
+        }
+
+        private void _GenerateTableStoredProcedures()
+        {
+            _TableSingularName = _GetTableSingularName(_TableName);
+
+            StringBuilder generatedStoredProcedures = new StringBuilder();
+
+            generatedStoredProcedures.Append(_GenerateGetAllStoredProcedure() + "\n");
+            generatedStoredProcedures.Append("--------------------------------------------------------");
+            generatedStoredProcedures.Append(_GenerateCheckIfExistsStoredProcedure() + "\n");
+            generatedStoredProcedures.Append("--------------------------------------------------------");
+            generatedStoredProcedures.Append(_GenerateDeleteStoredProcedure() + "\n");
+            generatedStoredProcedures.Append("--------------------------------------------------------");
+            generatedStoredProcedures.Append(_GenerateGetInfoByIDStoredProcedure() + "\n");
+            generatedStoredProcedures.Append("--------------------------------------------------------");
+            generatedStoredProcedures.Append(_GenerateAddNewStoredProcedure() + "\n");
+            generatedStoredProcedures.Append("--------------------------------------------------------");
+            generatedStoredProcedures.Append(_GenerateUpdateStoredProcedure() + "\n");
+
+            txtGeneratedCode.Text = generatedStoredProcedures.ToString();
+        }
+
+        private string _GenerateGetAllStoredProcedure()
+        {
+            string storedProcedureName = $"SP_GetAll{_TableName}";
+
+            string generatedStoredProcedure = $@"
+CREATE PROCEDURE {storedProcedureName}
+AS 
+    BEGIN 
+        SELECT * FROM {_TableName};
+    END
+GO";
+            return generatedStoredProcedure;
+
+        }
+
+        private string _GenerateCheckIfExistsStoredProcedure()
+        {
+            string storedProcedureName = $"SP_CheckIf{_TableSingularName}Exists";
+
+            string generatedStoredProcedure = $@"
+CREATE PROCEDURE {storedProcedureName}
+    @{_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]} {_TableColumnsWithDataTypePrecision.Rows[0]["Data Type"]}
+AS 
+    BEGIN 
+        IF EXISTS(SELECT * FROM {_TableName} WHERE {_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]} = @{_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]})
+            RETURN 1;
+        ELSE
+            RETURN 0;
+    END
+GO";
+            return generatedStoredProcedure;
+
+        }
+
+        private string _GenerateDeleteStoredProcedure()
+        {
+            string storedProcedureName = $"SP_Delete{_TableSingularName}";
+
+            string generatedStoredProcedure = $@"
+CREATE PROCEDURE {storedProcedureName}
+    @{_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]} {_TableColumnsWithDataTypePrecision.Rows[0]["Data Type"]}
+AS 
+    BEGIN                    
+        DELETE FROM {_TableName} WHERE {_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]} = @{_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]};
+    END
+GO";
+            return generatedStoredProcedure;
+
+        }
+
+        private string _GenerateGetInfoByIDStoredProcedure()
+        {
+            string storedProcedureName = $"SP_Get{_TableSingularName}InfoByID";
+
+            string generatedStoredProcedure = $@"
+CREATE PROCEDURE {storedProcedureName}
+    @{_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]} {_TableColumnsWithDataTypePrecision.Rows[0]["Data Type"]}
+AS 
+    BEGIN                    
+        SELECT * FROM {_TableName} WHERE {_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]} = @{_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]};
+    END
+GO";
+            return generatedStoredProcedure;
+
+        }
+
+        private string _GenerateAddNewStoredProcedure()
+        {
+            StringBuilder parametersString = new StringBuilder();
+
+            DataRow row = null;
+
+            parametersString.AppendLine($"\t@New{_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]} {_TableColumnsWithDataTypePrecision.Rows[0]["Data Type"]} output ,");
+
+            for (int i = 1; i < _TableColumnsWithDataTypePrecision.Rows.Count; i++)
+            {
+                row = _TableColumnsWithDataTypePrecision.Rows[i];
+
+                if (i == _TableColumnsWithDataTypePrecision.Rows.Count-1)
+                    parametersString.AppendLine($"\t@{row["Column Name"]} {row["Data Type"]}");
+
+                else
+                    parametersString.AppendLine($"\t@{row["Column Name"]} {row["Data Type"]},");
+            }
+
+            StringBuilder queryParameters = new StringBuilder();
+            StringBuilder queryValues = new StringBuilder();
+
+            for (int i = 1; i < _TableColumnsWithDataTypePrecision.Rows.Count; i++)
+            {
+                row = _TableColumnsWithDataTypePrecision.Rows[i];
+
+                if (i == 1)
+                {
+                    queryParameters.Append($"{row["Column Name"]}");
+                    queryValues.Append($@"@{row["Column Name"]}");
+                }
+                else
+                {
+                    queryParameters.Append($",{row["Column Name"]}");
+                    queryValues.Append($@",@{row["Column Name"]}");
+                }
+            }
+
+            string storedProcedureName = $"SP_AddNew{_TableSingularName}";
+
+            string generatedStoredProcedure = $@"
+CREATE PROCEDURE {storedProcedureName}
+{parametersString}
+AS 
+    BEGIN                    
+        INSERT INTO {_TableName} ({queryParameters})
+        VALUES ({queryValues});
+
+        SET @New{_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]} = SCOPE_IDENTITY();
+    END
+GO";
+            return generatedStoredProcedure;
+
+        }
+
+        private string _GenerateUpdateStoredProcedure()
+        {
+            StringBuilder parametersString = new StringBuilder();
+
+            DataRow row = null;
+
+            for (int i = 0; i < _TableColumnsWithDataTypePrecision.Rows.Count; i++)
+            {
+                row = _TableColumnsWithDataTypePrecision.Rows[i];
+
+                if (i == _TableColumnsWithDataTypePrecision.Rows.Count - 1)
+                    parametersString.AppendLine($"\t@{row["Column Name"]} {row["Data Type"]}");
+
+                else
+                    parametersString.AppendLine($"\t@{row["Column Name"]} {row["Data Type"]},");
+            }
+
+            StringBuilder queryValues = new StringBuilder();
+
+            for (int i = 1; i < _TableColumnsWithDataTypePrecision.Rows.Count; i++)
+            {
+                row = _TableColumnsWithDataTypePrecision.Rows[i];
+
+                queryValues.Append("\n");
+
+                if (i != _TableColumnsWithDataTypePrecision.Rows.Count - 1)
+                    queryValues.Append("\t\t\t" + $"{row["Column Name"]} = @{row["Column Name"]},");
+
+                else
+                    queryValues.Append("\t\t\t" + $"{row["Column Name"]} = @{row["Column Name"]}");
+            }
+
+            string storedProcedureName = $"SP_Update{_TableSingularName}";
+
+            string generatedStoredProcedure = $@"
+CREATE PROCEDURE {storedProcedureName}
+{parametersString}
+AS 
+    BEGIN                    
+        UPDATE {_TableName}
+        SET {queryValues}
+        WHERE {_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]} = @{_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]};
+    END
+GO";
+            return generatedStoredProcedure;
+
+        }
+        #endregion
 
     }
 }

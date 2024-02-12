@@ -88,9 +88,54 @@ namespace CodeGeneratorDataAccesLayer
             string query = $@"USE {DatabaseName}; 
                              SELECT COLUMN_NAME as 'Column Name' , DATA_TYPE as 'Data Type', IS_NULLABLE as 'Is Nullable'
                              FROM INFORMATION_SCHEMA.COLUMNS
-                             WHERE TABLE_NAME = '{TableName}';";
+                             WHERE TABLE_NAME = @TableName;";
 
             SqlCommand command = new SqlCommand(query, connection);
+
+            command.Parameters.AddWithValue("@TableName", TableName);
+
+            SqlDataReader reader = null;
+
+            DataTable ColumnsDataTable = new DataTable();
+
+            try
+            {
+                connection.Open();
+                reader = command.ExecuteReader();
+
+                if (reader.HasRows)
+                {
+                    ColumnsDataTable.Load(reader);
+                }
+            }
+            catch (Exception ex) { }
+
+            finally
+            {
+                reader.Close();
+                connection.Close();
+            }
+
+            return ColumnsDataTable;
+        }
+
+        public static DataTable GetAllTableColumnsWithDataTypePrecision(string DatabaseName, string TableName)
+        {
+            SqlConnection connection = new SqlConnection(clsDataAccessSettings.connectionString);
+
+            string query = $@"USE {DatabaseName}; 
+                             SELECT 
+                                COLUMN_NAME as 'Column Name',
+	                            CASE 
+	                            WHEN CHARACTER_MAXIMUM_LENGTH IS NULL THEN DATA_TYPE
+	                            WHEN CHARACTER_MAXIMUM_LENGTH IS NOT NULL THEN DATA_TYPE +'('+ CAST(CHARACTER_MAXIMUM_LENGTH AS NVARCHAR) + ')'
+                                END AS 'Data Type'
+                            FROM INFORMATION_SCHEMA.COLUMNS
+                            WHERE TABLE_NAME = @TableName;";
+
+            SqlCommand command = new SqlCommand(query, connection);
+
+            command.Parameters.AddWithValue("@TableName", TableName);
 
             SqlDataReader reader = null;
 
