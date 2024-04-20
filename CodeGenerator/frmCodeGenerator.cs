@@ -39,6 +39,9 @@ namespace CodeGenerator
             _FillDatabasesInComboBox();
             _ResetDefaultValues();
             rbNormal.Checked = true;
+
+            //DEMO
+            cbDatabases.SelectedIndex = 4;
         }
 
         private void _ResetDefaultValues()
@@ -67,8 +70,7 @@ namespace CodeGenerator
             foreach (DataRow row in dataTable.Rows)
             {
                 cbDatabases.Items.Add(row["Databases"]);
-            }
-
+            }          
         }
 
         private void _FillTablesInComboBox()
@@ -180,6 +182,13 @@ namespace CodeGenerator
             }
         }
 
+        private string ConvertFirstCharacterLowercase(string input)
+        {
+            char firstChar = char.ToLower(input[0]);
+            return firstChar + input.Substring(1);
+        }
+
+
         #region Data Access Layer
 
         private void btnGenerateDataAccessLayer_Click(object sender, EventArgs e)
@@ -200,7 +209,7 @@ namespace CodeGenerator
 
             StringBuilder generatedCode = new StringBuilder();
 
-            generatedCode.Append( $"public class cls{_TableSingularName}Data \n" + "{");
+            generatedCode.Append( $"public class {_TableSingularName}Data \n" + "{");
             generatedCode.Append("\n" + _GenerateGetByIDFunction() + "\n");
             generatedCode.Append("\n" + _GenerateDoesExistFunction() + "\n");
             generatedCode.Append("\n" + _GenerateAddFunction() + "\n");
@@ -222,7 +231,7 @@ namespace CodeGenerator
 
             generatedCode.Append($"\nnamespace {DataAccessNameSpace} \n" + "{");
 
-            generatedCode.Append($"\n\tpublic class cls{TableSingularName}Data \n" + "\t{");
+            generatedCode.Append($"\n\tpublic class {TableSingularName}Data \n" + "\t{");
 
             generatedCode.Append("\n\t\t" + _GenerateGetByIDFunction() + "\n");
             generatedCode.Append("\n\t\t" + _GenerateDoesExistFunction() + "\n");
@@ -288,10 +297,10 @@ namespace CodeGenerator
                 IsNullable = (string)row["Is Nullable"] == "YES";
 
                 if (i == 0)
-                    parametersString.Append($"{_GetColumnDataType(row["Data Type"],true)} {row["Column Name"]}");
+                    parametersString.Append($"{_GetColumnDataType(row["Data Type"],true)} {ConvertFirstCharacterLowercase(row["Column Name"].ToString())}");
 
                 else
-                    parametersString.Append($@", ref {_GetColumnDataType(row["Data Type"],IsNullable)} {row["Column Name"]}");
+                    parametersString.Append($@", ref {_GetColumnDataType(row["Data Type"],IsNullable)} {ConvertFirstCharacterLowercase(row["Column Name"].ToString())}");
             }
 
             string functionSignature = $@"public static bool Get{_TableSingularName}InfoByID ({parametersString})";
@@ -305,16 +314,16 @@ namespace CodeGenerator
 
                 if(IsNullable)
                 fetchedData.Append($@"
-                {row["Column Name"]} = (reader[""{row["Column Name"]}""] != DBNull.Value) ? ({_GetColumnDataType(row["Data Type"],true)}) reader[""{row["Column Name"]}""] : null;");
+                {ConvertFirstCharacterLowercase(row["Column Name"].ToString())} = (reader[""{row["Column Name"]}""] != DBNull.Value) ? ({_GetColumnDataType(row["Data Type"],true)}) reader[""{row["Column Name"]}""] : null;");
                 
                 else
                     fetchedData.Append($@"
-                {row["Column Name"]} = ({_GetColumnDataType(row["Data Type"])}) reader[""{row["Column Name"]}""];");
+                {ConvertFirstCharacterLowercase(row["Column Name"].ToString())} = ({_GetColumnDataType(row["Data Type"])}) reader[""{row["Column Name"]}""];");
 
                 fetchedData.Append("\n");
             }
 
-            string storedProcedureName = $"SP_Get{_TableSingularName}InfoByID";
+            string storedProcedureName = $"SP_{_TableName}_Get{_TableSingularName}InfoByID";
 
             string generatedCode = $@"{functionSignature} {{
             bool isFound = false;
@@ -329,7 +338,7 @@ namespace CodeGenerator
                     {{
                         command.CommandType = CommandType.StoredProcedure;
 
-                        command.Parameters.AddWithValue(""@{_TableColumns.Rows[0]["Column Name"]}"", (object){_TableColumns.Rows[0]["Column Name"]} ?? DBNull.Value);
+                        command.Parameters.AddWithValue(""@{_TableColumns.Rows[0]["Column Name"]}"", (object) {ConvertFirstCharacterLowercase(_TableColumns.Rows[0]["Column Name"].ToString())} ?? DBNull.Value);
                            
                         using (SqlDataReader reader = command.ExecuteReader())
                         {{
@@ -363,9 +372,9 @@ namespace CodeGenerator
 
         private string _GenerateDoesExistFunction()
         {
-            string functionSignature = $@"public static bool Does{_TableSingularName}Exist ({_GetColumnDataType(_TableColumns.Rows[0]["Data Type"],true)} {_TableColumns.Rows[0]["Column Name"]})";
+            string functionSignature = $@"public static bool Does{_TableSingularName}Exist ({_GetColumnDataType(_TableColumns.Rows[0]["Data Type"],true)} {ConvertFirstCharacterLowercase(_TableColumns.Rows[0]["Column Name"].ToString())})";
 
-            string storedProcedureName = $"SP_CheckIf{_TableSingularName}Exists";
+            string storedProcedureName = $"SP_{_TableName}_CheckIf{_TableSingularName}Exists";
 
             string generatedCode = $@"{functionSignature} {{
             bool isFound = false;
@@ -380,7 +389,7 @@ namespace CodeGenerator
                     {{
                         command.CommandType = CommandType.StoredProcedure;
 
-                        command.Parameters.AddWithValue(""@{_TableColumns.Rows[0]["Column Name"]}"", (object){_TableColumns.Rows[0]["Column Name"]} ?? DBNull.Value);
+                        command.Parameters.AddWithValue(""@{_TableColumns.Rows[0]["Column Name"]}"", (object){ConvertFirstCharacterLowercase(_TableColumns.Rows[0]["Column Name"].ToString())} ?? DBNull.Value);
                           
                         SqlParameter returnValue = new SqlParameter
                         {{
@@ -419,10 +428,10 @@ namespace CodeGenerator
                 IsNullable = (string)row["Is Nullable"] == "YES";
 
                 if (i == 0)
-                    parametersString.Append($"{_GetColumnDataType(row["Data Type"], true)} {row["Column Name"]}");
+                    parametersString.Append($"{_GetColumnDataType(row["Data Type"], true)} {ConvertFirstCharacterLowercase(row["Column Name"].ToString())}");
 
                 else
-                    parametersString.Append($@", {_GetColumnDataType(row["Data Type"], IsNullable)} {row["Column Name"]}");
+                    parametersString.Append($@", {_GetColumnDataType(row["Data Type"], IsNullable)} {ConvertFirstCharacterLowercase(row["Column Name"].ToString())}");
             }
 
             string functionSignature = $@"public static bool Update{_TableSingularName}Info ({parametersString})";
@@ -435,14 +444,14 @@ namespace CodeGenerator
                 IsNullable = (string)row["Is Nullable"] == "YES";
 
                 if(IsNullable)
-                   commandParameters.Append($@"command.Parameters.AddWithValue(""@{row["Column Name"]}"",(object) {row["Column Name"]} ?? DBNull.Value);");
+                   commandParameters.Append($@"command.Parameters.AddWithValue(""@{row["Column Name"]}"",(object) {ConvertFirstCharacterLowercase(row["Column Name"].ToString())} ?? DBNull.Value);");
                 else
-                    commandParameters.Append($@"command.Parameters.AddWithValue(""@{row["Column Name"]}"",{row["Column Name"]});");
+                    commandParameters.Append($@"command.Parameters.AddWithValue(""@{row["Column Name"]}"",{ConvertFirstCharacterLowercase(row["Column Name"].ToString())});");
 
                 commandParameters.Append("\n");
             }
 
-            string storedProcedureName = $"SP_Update{_TableSingularName}Info";
+            string storedProcedureName = $"SP_{_TableName}_Update{_TableSingularName}Info";
 
             string generatedCode = $@"{functionSignature} {{
             int rowsAffected = 0;
@@ -478,10 +487,10 @@ namespace CodeGenerator
         {
             string functionSignature = $@"public static DataTable GetAll{_TableName}()";
 
-            string storedProcedureName = $"SP_GetAll{_TableName}";
+            string storedProcedureName = $"SP_{_TableName}_GetAll{_TableName}";
 
             string generatedCode = $@"{functionSignature} {{
-            DataTable Datatable = new DataTable(); 
+            DataTable {ConvertFirstCharacterLowercase(_TableName)} = new DataTable(); 
 
             try
             {{
@@ -497,7 +506,7 @@ namespace CodeGenerator
                         {{
                             if(reader.HasRows)
                  	        {{
-                    		    Datatable.Load(reader); 
+                    		    {ConvertFirstCharacterLowercase(_TableName)}.Load(reader); 
                 	        }}        
                         }}
                     }}
@@ -507,7 +516,7 @@ namespace CodeGenerator
             {{
                 clsErrorLogger.LogError(ex);
             }}
-            return Datatable;
+            return {ConvertFirstCharacterLowercase(_TableName)};
          }}";
 
             return generatedCode;
@@ -515,9 +524,9 @@ namespace CodeGenerator
 
         private string _GenerateDeleteFunction()
         {
-            string functionSignature = $@"public static bool Delete{_TableSingularName} ({_GetColumnDataType(_TableColumns.Rows[0]["Data Type"], true)} {_TableColumns.Rows[0]["Column Name"]})";
+            string functionSignature = $@"public static bool Delete{_TableSingularName} ({_GetColumnDataType(_TableColumns.Rows[0]["Data Type"], true)} {ConvertFirstCharacterLowercase(_TableColumns.Rows[0]["Column Name"].ToString())})";
 
-            string storedProcedureName = $"SP_Delete{_TableSingularName}";
+            string storedProcedureName = $"SP_{_TableName}_Delete{_TableSingularName}";
 
             string generatedCode = $@"{functionSignature} {{
             int rowsAffected = 0;
@@ -532,7 +541,7 @@ namespace CodeGenerator
                     {{
                         command.CommandType = CommandType.StoredProcedure;
 
-                        command.Parameters.AddWithValue(""@{_TableColumns.Rows[0]["Column Name"]}"", (object){_TableColumns.Rows[0]["Column Name"]} ?? DBNull.Value);
+                        command.Parameters.AddWithValue(""@{_TableColumns.Rows[0]["Column Name"]}"", (object){ConvertFirstCharacterLowercase(_TableColumns.Rows[0]["Column Name"].ToString())} ?? DBNull.Value);
                           
 		                rowsAffected = command.ExecuteNonQuery();          
                     }}
@@ -561,10 +570,10 @@ namespace CodeGenerator
                 IsNullable = (string)row["Is Nullable"] == "YES";
 
                 if (i == 1)
-                    parametersString.Append($"{_GetColumnDataType(row["Data Type"],IsNullable)} {row["Column Name"]}");
+                    parametersString.Append($"{_GetColumnDataType(row["Data Type"],IsNullable)} {ConvertFirstCharacterLowercase(row["Column Name"].ToString())}");
 
                 else
-                    parametersString.Append($", {_GetColumnDataType(row["Data Type"],IsNullable)} {row["Column Name"]}");
+                    parametersString.Append($", {_GetColumnDataType(row["Data Type"],IsNullable)} {ConvertFirstCharacterLowercase(row["Column Name"].ToString())}");
             }
 
             string functionSignature = $@"public static int? AddNew{_TableSingularName} ({parametersString})";
@@ -578,17 +587,17 @@ namespace CodeGenerator
                 IsNullable = (string)row["Is Nullable"] == "YES";
 
                 if (IsNullable)
-                    commandParameters.Append($@"command.Parameters.AddWithValue(""@{row["Column Name"]}"",(object) {row["Column Name"]} ?? DBNull.Value);");
+                    commandParameters.Append($@"command.Parameters.AddWithValue(""@{row["Column Name"]}"",(object) {ConvertFirstCharacterLowercase(row["Column Name"].ToString())} ?? DBNull.Value);");
                 else
-                    commandParameters.Append($@"command.Parameters.AddWithValue(""@{row["Column Name"]}"",{row["Column Name"]});");
+                    commandParameters.Append($@"command.Parameters.AddWithValue(""@{row["Column Name"]}"",{ConvertFirstCharacterLowercase(row["Column Name"].ToString())});");
 
                 commandParameters.Append(Environment.NewLine);
             }
 
-            string storedProcedureName = $"SP_AddNew{_TableSingularName}";
+            string storedProcedureName = $"SP_{_TableName}_AddNew{_TableSingularName}";
 
             string generatedCode = $@"{functionSignature} {{
-            {_TableColumns.Rows[0]["Data Type"]}? {_TableColumns.Rows[0]["Column Name"]} = null;
+            {_TableColumns.Rows[0]["Data Type"]}? {ConvertFirstCharacterLowercase(_TableColumns.Rows[0]["Column Name"].ToString())} = null;
       
             try
             {{
@@ -601,16 +610,16 @@ namespace CodeGenerator
                         command.CommandType = CommandType.StoredProcedure;
                         {commandParameters}
 
-                        SqlParameter outputContactIDParameter = new SqlParameter(""@{_TableColumns.Rows[0]["Column Name"]}"", SqlDbType.Int)
+                        SqlParameter output{_TableColumns.Rows[0]["Column Name"]}Parameter = new SqlParameter(""@New{_TableColumns.Rows[0]["Column Name"]}"", SqlDbType.Int)
                         {{
                             Direction = ParameterDirection.Output
                         }};
 
-                        command.Parameters.Add(outputContactIDParameter);
+                        command.Parameters.Add(output{_TableColumns.Rows[0]["Column Name"]}Parameter);
 
                         command.ExecuteNonQuery();
 
-                        {_TableColumns.Rows[0]["Column Name"]} = (int)outputContactIDParameter.Value;
+                        {ConvertFirstCharacterLowercase(_TableColumns.Rows[0]["Column Name"].ToString())} = (int)output{_TableColumns.Rows[0]["Column Name"]}Parameter.Value;
                     }}
                 }}
             }}
@@ -618,9 +627,9 @@ namespace CodeGenerator
             {{
                 clsErrorLogger.LogError(ex);
 
-                {_TableColumns.Rows[0]["Column Name"]} = null;
+                {ConvertFirstCharacterLowercase(_TableColumns.Rows[0]["Column Name"].ToString())} = null;
             }}
-            return {_TableColumns.Rows[0]["Column Name"]};
+            return {ConvertFirstCharacterLowercase(_TableColumns.Rows[0]["Column Name"].ToString())};
         }}";
             return generatedCode;
         }
@@ -646,7 +655,7 @@ namespace CodeGenerator
 
             StringBuilder generatedCode = new StringBuilder();
 
-            generatedCode.AppendLine($"public class cls{_TableSingularName} \n" + "{");
+            generatedCode.AppendLine($"public class {_TableSingularName} \n" + "{");
             generatedCode.Append("\n" + _GenerateBusinessClassFields() + "\n");
             generatedCode.Append("\n" + _GenerateBusinessClassConstructors() + "\n");
             generatedCode.Append("\n" + _GenerateBusinessClassFindFunc() + "\n");
@@ -671,7 +680,7 @@ namespace CodeGenerator
 
             generatedCode.Append($"\nnamespace {BusinessNameSpace} \n" + "{");
 
-            generatedCode.Append($"\n\tpublic class cls{TableSingularName} \n" + "\t{");
+            generatedCode.Append($"\n\tpublic class {TableSingularName} \n" + "\t{");
             generatedCode.Append("\n\t\t" + _GenerateBusinessClassFields() + "\n");
             generatedCode.Append("\n\t\t" + _GenerateBusinessClassConstructors() + "\n");
             generatedCode.Append("\n\t\t" + _GenerateBusinessClassFindFunc() + "\n");
@@ -691,8 +700,8 @@ namespace CodeGenerator
         {
             StringBuilder fields = new StringBuilder();
 
-            fields.Append("private enum enMode {AddNew = 0 , Update = 1}; \n");
-            fields.Append("private enMode _Mode;");
+            fields.Append("private enum EnMode {AddNew = 0 , Update = 1}; \n");
+            fields.Append("private EnMode _mode;");
 
             DataRow row = null;
             bool IsNullable = false;
@@ -708,6 +717,7 @@ namespace CodeGenerator
                 else
                     fields.Append($"\npublic {_GetColumnDataType(row["Data Type"], IsNullable)} {row["Column Name"]}" + "{get ; set;}");
             }
+
             return fields.ToString();
         }
 
@@ -720,9 +730,9 @@ namespace CodeGenerator
         {
             StringBuilder parameterlessConstructor = new StringBuilder();
 
-            parameterlessConstructor.Append($"public cls{_TableSingularName}() \n");
+            parameterlessConstructor.Append($"public {_TableSingularName}() \n");
             parameterlessConstructor.Append("{ \n");
-            parameterlessConstructor.Append("_Mode = enMode.AddNew;\n");
+            parameterlessConstructor.Append("_mode = EnMode.AddNew;\n");
 
             DataRow row = null;
             bool IsNullable = false;
@@ -745,7 +755,7 @@ namespace CodeGenerator
 
         private string _GenerateParameterizedConstructor()
         {
-            StringBuilder parameterlessConstructor = new StringBuilder();
+            StringBuilder parameterizedConstructor = new StringBuilder();
             StringBuilder parametersString = new StringBuilder();
 
             DataRow row = null;
@@ -757,33 +767,33 @@ namespace CodeGenerator
                 IsNullable = (string)row["Is Nullable"] == "YES";
 
                 if (i == 0)
-                    parametersString.Append($"{_GetColumnDataType(row["Data Type"],true)} {row["Column Name"]}");
+                    parametersString.Append($"{_GetColumnDataType(row["Data Type"],true)} {ConvertFirstCharacterLowercase(row["Column Name"].ToString())}");
 
                 else
-                    parametersString.Append($@",{_GetColumnDataType(row["Data Type"],IsNullable)} {row["Column Name"]}");
+                    parametersString.Append($@",{_GetColumnDataType(row["Data Type"],IsNullable)} {ConvertFirstCharacterLowercase(row["Column Name"].ToString())}");
             }
 
-            parameterlessConstructor.Append($"private cls{_TableSingularName}({parametersString})\n");
-            parameterlessConstructor.Append("{\n");
-            parameterlessConstructor.Append("_Mode = enMode.Update;\n");
+            parameterizedConstructor.Append($"private {_TableSingularName}({parametersString})\n");
+            parameterizedConstructor.Append("{\n");
+            parameterizedConstructor.Append("_mode = EnMode.Update;\n");
 
             for (int i = 0; i < _TableColumns.Rows.Count; i++)
             {
                 row = _TableColumns.Rows[i];
-                parameterlessConstructor.Append($"this.{row["Column Name"]} = {row["Column Name"]}; \n");
+                parameterizedConstructor.Append($"this.{row["Column Name"]} = {ConvertFirstCharacterLowercase(row["Column Name"].ToString())}; \n");
             }
 
-            parameterlessConstructor.Append("}");
+            parameterizedConstructor.Append("}");
 
-            return parameterlessConstructor.ToString();
+            return parameterizedConstructor.ToString();
         }
 
         private string _GenerateBusinessClassDeleteFunc()
         {
             StringBuilder generatedCode = new StringBuilder();
-            generatedCode.Append($"public static bool Delete{_TableSingularName}({_GetColumnDataType(_TableColumns.Rows[0]["Data Type"], true)} {_TableColumns.Rows[0]["Column Name"]})\n");
+            generatedCode.Append($"public static bool Delete{_TableSingularName}({_GetColumnDataType(_TableColumns.Rows[0]["Data Type"], true)} {ConvertFirstCharacterLowercase(_TableColumns.Rows[0]["Column Name"].ToString())})\n");
             generatedCode.Append("{\n");
-            generatedCode.Append($"return cls{_TableSingularName}Data.Delete{_TableSingularName}({_TableColumns.Rows[0]["Column Name"]});\n");
+            generatedCode.Append($"return {_TableSingularName}Data.Delete{_TableSingularName}({ConvertFirstCharacterLowercase(_TableColumns.Rows[0]["Column Name"].ToString())});\n");
             generatedCode.Append("}");
 
             return generatedCode.ToString();
@@ -795,7 +805,7 @@ namespace CodeGenerator
 
             generatedCode.Append($"public static DataTable GetAll{_TableName}()\n");
             generatedCode.Append("{\n");
-            generatedCode.Append($"return cls{_TableSingularName}Data.GetAll{_TableName}();\n");
+            generatedCode.Append($"return {_TableSingularName}Data.GetAll{_TableName}();\n");
             generatedCode.Append("}");
 
             return generatedCode.ToString();
@@ -807,18 +817,18 @@ namespace CodeGenerator
 
             generatedCode = $@"public bool Save()
             {{ 
-            switch (_Mode)
+            switch (_mode)
             {{
-                case enMode.AddNew:
-                    if (_AddNew{_TableSingularName}())
+                case EnMode.AddNew:
+                    if (AddNew{_TableSingularName}())
                     {{
-                        _Mode = enMode.Update;
+                        _mode = EnMode.Update;
                         return true;
                     }}
                     return false;
 
-                case enMode.Update:
-                    return _Update{_TableSingularName}();
+                case EnMode.Update:
+                    return Update{_TableSingularName}();
 
             }}
             return false;
@@ -844,9 +854,9 @@ namespace CodeGenerator
             }
             string generatedCode = "";
 
-            generatedCode = $@"private bool _AddNew{_TableSingularName}()
+            generatedCode = $@"private bool AddNew{_TableSingularName}()
             {{
-            {_TableColumns.Rows[0]["Column Name"]} = cls{_TableSingularName}Data.AddNew{_TableSingularName}({parametersString});
+            {_TableColumns.Rows[0]["Column Name"]} = {_TableSingularName}Data.AddNew{_TableSingularName}({parametersString});
             return {_TableColumns.Rows[0]["Column Name"]}.HasValue;
             }}";
 
@@ -870,9 +880,9 @@ namespace CodeGenerator
             }
             string generatedCode = "";
 
-            generatedCode = $@"private bool _Update{_TableSingularName}()
+            generatedCode = $@"private bool Update{_TableSingularName}()
             {{
-            return cls{_TableSingularName}Data.Update{_TableSingularName}Info ({parametersString});         
+            return {_TableSingularName}Data.Update{_TableSingularName}Info ({parametersString});         
             }}";
 
             return generatedCode;
@@ -894,26 +904,26 @@ namespace CodeGenerator
 
                 if (i == 0)
                 {
-                    functionParametersString.Append($"{row["Column Name"]}");
-                    constructorParametersString.Append($"{row["Column Name"]}");
+                    functionParametersString.Append($"{ConvertFirstCharacterLowercase(row["Column Name"].ToString())}");
+                    constructorParametersString.Append($"{ConvertFirstCharacterLowercase(row["Column Name"].ToString())}");
                 }
 
                 else
                 {
-                    functionParametersString.Append($@", ref {row["Column Name"]}");
-                    constructorParametersString.Append($@",{row["Column Name"]}");
-                    variablesString.Append($"{_GetColumnDataType(row["Data Type"], IsNullable)} {row["Column Name"]} = default; \n");
+                    functionParametersString.Append($@", ref {ConvertFirstCharacterLowercase(row["Column Name"].ToString())}");
+                    constructorParametersString.Append($@",{ConvertFirstCharacterLowercase(row["Column Name"].ToString())}");
+                    variablesString.Append($"{_GetColumnDataType(row["Data Type"], IsNullable)} {ConvertFirstCharacterLowercase(row["Column Name"].ToString())} = default; \n");
                 }
             }
 
             string generatedCode = "";
-            generatedCode = $@"public static cls{_TableSingularName} Find({_GetColumnDataType(_TableColumns.Rows[0]["Data Type"], true)} {_TableColumns.Rows[0]["Column Name"]})
+            generatedCode = $@"public static {_TableSingularName} Find({_GetColumnDataType(_TableColumns.Rows[0]["Data Type"], true)} {ConvertFirstCharacterLowercase(_TableColumns.Rows[0]["Column Name"].ToString())})
             {{ 
             {variablesString}
-            bool isFound = cls{_TableSingularName}Data.Get{_TableSingularName}InfoByID({functionParametersString});
+            bool isFound = {_TableSingularName}Data.Get{_TableSingularName}InfoByID({functionParametersString});
 
             if (isFound)
-                return new cls{_TableSingularName}({constructorParametersString});
+                return new {_TableSingularName}({constructorParametersString});
             else
                 return null; 
             }}";
@@ -925,9 +935,9 @@ namespace CodeGenerator
         {
             StringBuilder generatedCode = new StringBuilder();
 
-            generatedCode.Append($"public static bool Does{_TableSingularName}Exist({_GetColumnDataType(_TableColumns.Rows[0]["Data Type"], true)} {_TableColumns.Rows[0]["Column Name"]})\n");
+            generatedCode.Append($"public static bool Does{_TableSingularName}Exist({_GetColumnDataType(_TableColumns.Rows[0]["Data Type"], true)} {ConvertFirstCharacterLowercase(_TableColumns.Rows[0]["Column Name"].ToString())})\n");
             generatedCode.Append("{\n");
-            generatedCode.Append($"return cls{_TableSingularName}Data.Does{_TableSingularName}Exist({_TableColumns.Rows[0]["Column Name"]});\n");
+            generatedCode.Append($"return {_TableSingularName}Data.Does{_TableSingularName}Exist({ConvertFirstCharacterLowercase(_TableColumns.Rows[0]["Column Name"].ToString())});\n");
             generatedCode.Append("}");
 
             return generatedCode.ToString();
@@ -950,7 +960,7 @@ namespace CodeGenerator
 
                 _TableSingularName = _TableName.Substring(0, _TableName.Length - 1);
 
-                filePath = txtDataAccessLayerPath.Text.Trim() + $"cls{_TableSingularName}Data" + ".cs";
+                filePath = txtDataAccessLayerPath.Text.Trim() + $"{_TableSingularName}Data" + ".cs";
 
                 using (StreamWriter writer = new StreamWriter(filePath))
                 {
@@ -973,7 +983,7 @@ namespace CodeGenerator
 
                 _TableSingularName = _TableName.Substring(0, _TableName.Length - 1);
 
-                filePath = txtBusinessLayerPath.Text.Trim() + $"cls{_TableSingularName}" + ".cs";
+                filePath = txtBusinessLayerPath.Text.Trim() + $"{_TableSingularName}" + ".cs";
 
                 using (StreamWriter writer = new StreamWriter(filePath))
                 {
@@ -1054,7 +1064,7 @@ namespace CodeGenerator
 
         private string _GenerateGetAllStoredProcedure()
         {
-            string storedProcedureName = $"SP_GetAll{_TableName}";
+            string storedProcedureName = $"SP_{_TableName}_GetAll{_TableName}";
 
             string generatedStoredProcedure = $@"
 CREATE PROCEDURE {storedProcedureName}
@@ -1069,14 +1079,14 @@ GO";
 
         private string _GenerateCheckIfExistsStoredProcedure()
         {
-            string storedProcedureName = $"SP_CheckIf{_TableSingularName}Exists";
+            string storedProcedureName = $"SP_{_TableName}_CheckIf{_TableSingularName}Exists";
 
             string generatedStoredProcedure = $@"
 CREATE PROCEDURE {storedProcedureName}
-    @{_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]} {_TableColumnsWithDataTypePrecision.Rows[0]["Data Type"]}
+    @{_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]} {_TableColumnsWithDataTypePrecision.Rows[0]["Data Type"].ToString().ToUpper()}
 AS 
     BEGIN 
-        IF EXISTS(SELECT * FROM {_TableName} WHERE {_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]} = @{_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]})
+        IF EXISTS(SELECT isFound = 1 FROM {_TableName} WHERE {_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]} = @{_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]})
             RETURN 1;
         ELSE
             RETURN 0;
@@ -1088,11 +1098,11 @@ GO";
 
         private string _GenerateDeleteStoredProcedure()
         {
-            string storedProcedureName = $"SP_Delete{_TableSingularName}";
+            string storedProcedureName = $"SP_{_TableName}_Delete{_TableSingularName}";
 
             string generatedStoredProcedure = $@"
 CREATE PROCEDURE {storedProcedureName}
-    @{_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]} {_TableColumnsWithDataTypePrecision.Rows[0]["Data Type"]}
+    @{_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]} {_TableColumnsWithDataTypePrecision.Rows[0]["Data Type"].ToString().ToUpper()}
 AS 
     BEGIN                    
         DELETE FROM {_TableName} WHERE {_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]} = @{_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]};
@@ -1104,11 +1114,11 @@ GO";
 
         private string _GenerateGetInfoByIDStoredProcedure()
         {
-            string storedProcedureName = $"SP_Get{_TableSingularName}InfoByID";
+            string storedProcedureName = $"SP_{_TableName}_Get{_TableSingularName}InfoByID";
 
             string generatedStoredProcedure = $@"
 CREATE PROCEDURE {storedProcedureName}
-    @{_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]} {_TableColumnsWithDataTypePrecision.Rows[0]["Data Type"]}
+    @{_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]} {_TableColumnsWithDataTypePrecision.Rows[0]["Data Type"].ToString().ToUpper()}
 AS 
     BEGIN                    
         SELECT * FROM {_TableName} WHERE {_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]} = @{_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]};
@@ -1124,17 +1134,17 @@ GO";
 
             DataRow row = null;
 
-            parametersString.AppendLine($"\t@New{_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]} {_TableColumnsWithDataTypePrecision.Rows[0]["Data Type"]} output ,");
+            parametersString.AppendLine($"\t@New{_TableColumnsWithDataTypePrecision.Rows[0]["Column Name"]} {_TableColumnsWithDataTypePrecision.Rows[0]["Data Type"].ToString().ToUpper()} OUTPUT ,");
 
             for (int i = 1; i < _TableColumnsWithDataTypePrecision.Rows.Count; i++)
             {
                 row = _TableColumnsWithDataTypePrecision.Rows[i];
 
                 if (i == _TableColumnsWithDataTypePrecision.Rows.Count-1)
-                    parametersString.AppendLine($"\t@{row["Column Name"]} {row["Data Type"]}");
+                    parametersString.AppendLine($"\t@{row["Column Name"]} {row["Data Type"].ToString().ToUpper()}");
 
                 else
-                    parametersString.AppendLine($"\t@{row["Column Name"]} {row["Data Type"]},");
+                    parametersString.AppendLine($"\t@{row["Column Name"]} {row["Data Type"].ToString().ToUpper()},");
             }
 
             StringBuilder queryParameters = new StringBuilder();
@@ -1156,7 +1166,7 @@ GO";
                 }
             }
 
-            string storedProcedureName = $"SP_AddNew{_TableSingularName}";
+            string storedProcedureName = $"SP_{_TableName}_AddNew{_TableSingularName}";
 
             string generatedStoredProcedure = $@"
 CREATE PROCEDURE {storedProcedureName}
@@ -1184,10 +1194,10 @@ GO";
                 row = _TableColumnsWithDataTypePrecision.Rows[i];
 
                 if (i == _TableColumnsWithDataTypePrecision.Rows.Count - 1)
-                    parametersString.AppendLine($"\t@{row["Column Name"]} {row["Data Type"]}");
+                    parametersString.AppendLine($"\t@{row["Column Name"]} {row["Data Type"].ToString().ToUpper()}");
 
                 else
-                    parametersString.AppendLine($"\t@{row["Column Name"]} {row["Data Type"]},");
+                    parametersString.AppendLine($"\t@{row["Column Name"]} {row["Data Type"].ToString().ToUpper()},");
             }
 
             StringBuilder queryValues = new StringBuilder();
@@ -1205,7 +1215,7 @@ GO";
                     queryValues.Append("\t\t\t" + $"{row["Column Name"]} = @{row["Column Name"]}");
             }
 
-            string storedProcedureName = $"SP_Update{_TableSingularName}";
+            string storedProcedureName = $"SP_{_TableName}_Update{_TableSingularName}Info";
 
             string generatedStoredProcedure = $@"
 CREATE PROCEDURE {storedProcedureName}
@@ -1221,6 +1231,5 @@ GO";
 
         }
         #endregion
-
     }
 }
